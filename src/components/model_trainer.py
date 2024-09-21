@@ -31,47 +31,75 @@ class ModelTrainerConfig:
     
 class ModelTrainer:
     def __init__(self):
-        self.model_trainer_config=ModelTrainerConfig()
+        self.model_trainer_config = ModelTrainerConfig()
         
-    def initiate_model_trainer(self,train_array,test_array):
+    def initiate_model_trainer(self, train_array, test_array):
         logging.info("Entered the model training method or component")
         try:
             logging.info("Loading the preprocessor object")
-            X_train,y_train,X_test,y_test=(
-                train_array[:,:-1],
-                train_array[:,-1],
-                test_array[:,:-1],
-                test_array[:,-1]
+            X_train, y_train, X_test, y_test = (
+                train_array[:, :-1],
+                train_array[:, -1],
+                test_array[:, :-1],
+                test_array[:, -1]
             )
-            models={
-                "RandomForest":RandomForestRegressor(),
-                "DecisionTree":DecisionTreeRegressor(),
-                "KNN":KNeighborsRegressor(),
-                "Linear":LinearRegression(),
-                "XGBoost":XGBRegressor(),
-                "CatBoost":CatBoostRegressor(),
-                "AdaBoost":AdaBoostRegressor(),
-                "Ridge":Ridge(),
+            
+            models = {
+                "RandomForest": RandomForestRegressor(),
+                "DecisionTree": DecisionTreeRegressor(),
+                "KNN": KNeighborsRegressor(),
+                "Linear": LinearRegression(),
+                "XGBoost": XGBRegressor(),
+                "CatBoost": CatBoostRegressor(),
+                "AdaBoost": AdaBoostRegressor(),
+                "Ridge": Ridge(),
             }
-            model_report:dict=evaluate_models(X_train=X_train,y_train=y_train,X_test=X_test,y_test=y_test,models=models)
             
-            best_model_score=max(sorted(model_report.values()))
-            best_model_name=list(model_report.keys())[list(model_report.values()).index(best_model_score)]
+            params = {
+                "DecisionTree": {
+                    'criterion': ['squared_error', 'friedman_mse', 'absolute_error', 'poisson']
+                },
+                "RandomForest": {
+                    'n_estimators': [8, 16, 32, 64, 128, 256]
+                },
+                "XGBRegressor": {
+                    'learning_rate': [0.1, 0.01, 0.05, 0.001],
+                    'n_estimators': [8, 16, 32, 64, 128, 256]
+                },
+                "CatBoost": {
+                    'depth': [6, 8, 10],
+                    'learning_rate': [0.01, 0.05, 0.1],
+                    'iterations': [30, 50, 100]
+                },
+                "AdaBoost": {
+                    'learning_rate': [0.1, 0.01, 0.5, 0.001],
+                    'n_estimators': [8, 16, 32, 64, 128, 256]
+                }
+            }
             
-            best_model =  models[best_model_name]
+            # Evaluating models using some custom utility function
+            model_report: dict = evaluate_models(X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test, models=models, param=params)
             
-            if best_model_score<0.6:
+            # Find the best model
+            best_model_score = max(sorted(model_report.values()))
+            best_model_name = list(model_report.keys())[list(model_report.values()).index(best_model_score)]
+            
+            best_model = models[best_model_name]
+            
+            if best_model_score < 0.6:
                 raise CustomException("No best model found")
             
-            logging.info("Best model found")
+            logging.info(f"Best model found: {best_model_name} with score: {best_model_score}")
             
-            save_object(self.model_trainer_config.trained_model_file_path,best_model)
+            # Save the best model
+            save_object(self.model_trainer_config.trained_model_file_path, best_model)
             
-            predicted=best_model.predict(X_test)
+            # Predict using the best model
+            predicted = best_model.predict(X_test)
             
-            r2_square=r2_score(y_test,predicted)
+            r2_square = r2_score(y_test, predicted)
             
             return r2_square
-            
+        
         except Exception as e:
-            raise CustomException(e,sys)
+            raise CustomException(e, sys)
